@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import { Stage, Layer, Text } from 'react-konva';
+import { Stage, Layer, Text, Arrow } from 'react-konva';
 import Node from './Node';
 import useImage from 'use-image';
 import TextareaAutosize from 'react-textarea-autosize';
 import { useStore } from './store';
 import { ActionTypes, Current, State } from './Node/types';
+import ConnectionLine from './ConnectionLine';
 
 const App = () => {
   const [innerWidth, setInnerWidth] = useState<number | undefined>();
@@ -32,6 +33,15 @@ const App = () => {
         style={{
           cursor: data.cursor,
         }}
+        onDblClick={(e) => {
+          // console.log(e.target.getStage()?.getPointerPosition());
+        }}
+        onMouseUp={(e) => {
+          console.log('clicked');
+          dispatch({
+            type: ActionTypes.CreateArrowEnd,
+          });
+        }}
       >
         <Layer>
           {nodes.map((node) => (
@@ -46,6 +56,7 @@ const App = () => {
               isEditing={current === Current.Edit && data.id === node.id}
               onChange={() => {}}
               width={node.width}
+              connectingLines={node.connectingLines}
             />
           ))}
           <Text text="Some text on canvas" fontSize={15} />
@@ -56,8 +67,8 @@ const App = () => {
         style={{
           display: current === Current.Edit ? 'block' : 'none',
           position: 'absolute',
-          top: `${data.y}px`,
-          left: `${data.x}px`,
+          top: `${data.nodePosition?.y}px`,
+          left: `${data.nodePosition?.x}px`,
           width: `${data.width}px`,
           textAlign: 'center',
           outline: 'none',

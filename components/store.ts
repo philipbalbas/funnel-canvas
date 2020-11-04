@@ -8,8 +8,10 @@ import {
   ActionTypes,
   Current,
   CursorValues,
+  HoverItem,
   IDragNodeEndPayload,
   IOpenTextEditBoxPayload,
+  Side,
   State,
 } from './Node/types';
 
@@ -19,19 +21,27 @@ let defaultState: State = {
     id: null,
     cursor: CursorValues.Default,
     text: null,
-    x: null,
-    y: null,
+    nodePosition: null,
+    arrowOrigin: null,
+    arrowDest: null,
     width: null,
+    hoverItem: null,
   },
   nodes: [
     {
       id: '1',
-      left: 200,
-      top: 20,
+      left: 10,
+      top: 10,
       width: 200,
       height: 150,
       caption: 'Webinar',
       icon: '/envelope-regular.svg',
+      connectingLines: [
+        {
+          destinationId: '2',
+          side: Side.Left,
+        },
+      ],
     },
     {
       id: '2',
@@ -40,6 +50,12 @@ let defaultState: State = {
       width: 200,
       height: 150,
       caption: 'Content',
+      connectingLines: [
+        // {
+        //   destinationId: '1',
+        //   side: Side.Left,
+        // },
+      ],
     },
   ],
   dispatch: () => null,
@@ -57,16 +73,18 @@ const openTextBox = (
   draft: WritableDraft<State>,
   payload: IOpenTextEditBoxPayload
 ) => {
-  console.log('here', draft, payload);
   draft.current = Current.Edit;
-  draft.data = { ...payload, cursor: CursorValues.Default };
+  draft.data = {
+    ...payload,
+    cursor: CursorValues.Default,
+    hoverItem: null,
+  };
 };
 
 const dragNodeStart = (
   draft: WritableDraft<State>,
   payload: { id: string }
 ) => {
-  console.log('dragging');
   let index = draft.nodes.findIndex((node) => node.id === payload.id);
   let item = draft.nodes[index];
 
@@ -82,14 +100,14 @@ const dragNodeEnd = (
 ) => {
   let index = draft.nodes.findIndex((node) => node.id === payload.id);
 
-  draft.current = Current.Idle;
+  draft.current = Current.Hover;
   draft.data = defaultState.data;
   draft.nodes[index].left = payload.x;
   draft.nodes[index].top = payload.y;
 };
 
 let reducer = (state: State, action: Action) => {
-  console.log(state.current, action.type);
+  // console.log(state.current, action.type);
   return produce(state, (draft) => {
     switch (state.current) {
       case Current.Idle:
@@ -99,12 +117,16 @@ let reducer = (state: State, action: Action) => {
             draft.data.cursor = CursorValues.Text;
             break;
           case ActionTypes.DragNodeStart:
-            draft.current = Current.Drag;
-            draft.data.cursor = CursorValues.Move;
+            dragNodeStart(draft, action.payload);
             break;
           case ActionTypes.SelectNode:
             draft.current = Current.Select;
             draft.data.id = action.payload.id;
+            break;
+          case ActionTypes.HoverNodeEnter:
+            draft.current = Current.Hover;
+            draft.data.hoverItem = HoverItem.Node;
+            draft.data.cursor = CursorValues.Move;
             break;
         }
       case Current.Edit:
@@ -140,12 +162,40 @@ let reducer = (state: State, action: Action) => {
             draft.current = Current.Idle;
             draft.data.cursor = CursorValues.Default;
             break;
+          case ActionTypes.HoverNodeExit:
+            draft.current = Current.Idle;
+            draft.data.hoverItem = null;
+            draft.data.cursor = CursorValues.Default;
+            break;
+          case ActionTypes.HoverAnchorExit:
+            draft.current = Current.Idle;
+            draft.data.hoverItem = null;
+            draft.data.cursor = CursorValues.Default;
+            break;
+          case ActionTypes.DragNodeStart:
+            dragNodeStart(draft, action.payload);
+            break;
+          case ActionTypes.HoverAnchorEnter:
+            draft.current = Current.Hover;
+            draft.data.hoverItem = action.payload.anchorItem;
+            draft.data.id = action.payload.id;
+            draft.data.cursor = CursorValues.Grab;
+            break;
+          case ActionTypes.CreateArrowStart:
+            draft.current = Current.Connect;
+            break;
         }
       case Current.Drag:
         switch (action.type) {
           case ActionTypes.DragNodeEnd:
             dragNodeEnd(draft, action.payload);
             break;
+        }
+      case Current.Connect:
+        switch (action.type) {
+          case ActionTypes.CreateArrowEnd:
+            draft.current = Current.Idle;
+            draft.data.hoverItem = null;
         }
 
       case Current.Select:
